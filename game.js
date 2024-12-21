@@ -95,6 +95,21 @@ canvas.height = 400;
 const GRAVITY = 0.5;
 const JUMP_FORCE = -12;
 const MOVEMENT_SPEED = 5;
+const LEVEL_WIDTH = 2400; // Extended level width for 20 seconds more gameplay
+
+// Camera
+let cameraX = 0;
+
+// Game state
+let gameWon = false;
+
+// Goal flag
+const goal = {
+    x: LEVEL_WIDTH - 100,
+    y: 250,
+    width: 30,
+    height: 100
+};
 
 // Player
 const player = {
@@ -109,10 +124,18 @@ const player = {
 
 // Platforms (including ground)
 const platforms = [
-    { x: 0, y: 350, width: 800, height: 50 },    // Ground
-    { x: 200, y: 250, width: 100, height: 20 },  // Platform 1
-    { x: 400, y: 200, width: 100, height: 20 },  // Platform 2
-    { x: 600, y: 150, width: 100, height: 20 }   // Platform 3
+    { x: 0, y: 350, width: LEVEL_WIDTH, height: 50 },    // Extended ground
+    { x: 200, y: 250, width: 100, height: 20 },         // Platform 1
+    { x: 400, y: 200, width: 100, height: 20 },         // Platform 2
+    { x: 600, y: 150, width: 100, height: 20 },         // Platform 3
+    { x: 800, y: 200, width: 100, height: 20 },         // New platforms
+    { x: 1000, y: 250, width: 100, height: 20 },
+    { x: 1200, y: 150, width: 100, height: 20 },
+    { x: 1400, y: 200, width: 100, height: 20 },
+    { x: 1600, y: 250, width: 100, height: 20 },
+    { x: 1800, y: 150, width: 100, height: 20 },
+    { x: 2000, y: 200, width: 100, height: 20 },
+    { x: 2200, y: 250, width: 100, height: 20 }
 ];
 
 // Input handling
@@ -144,77 +167,99 @@ function checkCollision(rect1, rect2) {
 
 // Update game state
 function update() {
-    // Horizontal movement
-    if (keys.ArrowLeft) {
-        player.velocityX = -MOVEMENT_SPEED;
-    } else if (keys.ArrowRight) {
-        player.velocityX = MOVEMENT_SPEED;
-    } else {
-        player.velocityX = 0;
-    }
-
-    // Apply gravity
-    player.velocityY += GRAVITY;
-
-    // Update position
-    player.x += player.velocityX;
-    player.y += player.velocityY;
-
-    // Check platform collisions
-    player.isJumping = true;
-    for (const platform of platforms) {
-        if (checkCollision(player, platform)) {
-            // Top collision (landing)
-            if (player.velocityY > 0 && 
-                player.y + player.height - player.velocityY <= platform.y) {
-                player.y = platform.y - player.height;
-                player.velocityY = 0;
-                player.isJumping = false;
-            }
-            // Bottom collision (hitting head)
-            else if (player.velocityY < 0 && 
-                     player.y >= platform.y + platform.height) {
-                player.y = platform.y + platform.height;
-                player.velocityY = 0;
-            }
-            // Side collisions
-            else if (player.velocityX > 0) {
-                player.x = platform.x - player.width;
-            } else if (player.velocityX < 0) {
-                player.x = platform.x + platform.width;
-            }
+    if (!gameWon) {
+        // Horizontal movement
+        if (keys.ArrowLeft) {
+            player.velocityX = -MOVEMENT_SPEED;
+        } else if (keys.ArrowRight) {
+            player.velocityX = MOVEMENT_SPEED;
+        } else {
+            player.velocityX = 0;
         }
-    }
 
-    // Jump if on ground
-    if (keys.ArrowUp && !player.isJumping) {
-        player.velocityY = JUMP_FORCE;
+        // Apply gravity
+        player.velocityY += GRAVITY;
+
+        // Update position
+        player.x += player.velocityX;
+        player.y += player.velocityY;
+
+        // Check platform collisions
         player.isJumping = true;
-        createJumpSound();
-    }
-
-    // Step sounds when moving
-    if ((keys.ArrowLeft || keys.ArrowRight) && !player.isJumping) {
-        if (Date.now() - stepTimer > 200) { // Play step sound every 200ms while moving
-            createStepSound();
-            stepTimer = Date.now();
+        for (const platform of platforms) {
+            if (checkCollision(player, platform)) {
+                // Top collision (landing)
+                if (player.velocityY > 0 && 
+                    player.y + player.height - player.velocityY <= platform.y) {
+                    player.y = platform.y - player.height;
+                    player.velocityY = 0;
+                    player.isJumping = false;
+                }
+                // Bottom collision (hitting head)
+                else if (player.velocityY < 0 && 
+                         player.y >= platform.y + platform.height) {
+                    player.y = platform.y + platform.height;
+                    player.velocityY = 0;
+                }
+                // Side collisions
+                else if (player.velocityX > 0) {
+                    player.x = platform.x - player.width;
+                } else if (player.velocityX < 0) {
+                    player.x = platform.x + platform.width;
+                }
+            }
         }
-    }
 
-    // Landing sound
-    if (wasJumping && !player.isJumping) {
-        createLandSound();
-    }
-    wasJumping = player.isJumping;
+        // Jump if on ground
+        if (keys.ArrowUp && !player.isJumping) {
+            player.velocityY = JUMP_FORCE;
+            player.isJumping = true;
+            createJumpSound();
+        }
 
-    // Keep player in bounds
-    if (player.x < 0) player.x = 0;
-    if (player.x + player.width > canvas.width) player.x = canvas.width - player.width;
-    if (player.y < 0) player.y = 0;
-    if (player.y + player.height > canvas.height) {
-        player.y = canvas.height - player.height;
-        player.velocityY = 0;
-        player.isJumping = false;
+        // Step sounds when moving
+        if ((keys.ArrowLeft || keys.ArrowRight) && !player.isJumping) {
+            if (Date.now() - stepTimer > 200) { // Play step sound every 200ms while moving
+                createStepSound();
+                stepTimer = Date.now();
+            }
+        }
+
+        // Landing sound
+        if (wasJumping && !player.isJumping) {
+            createLandSound();
+        }
+        wasJumping = player.isJumping;
+
+        // Update camera position
+        cameraX = Math.max(0, Math.min(player.x - canvas.width/3, LEVEL_WIDTH - canvas.width));
+
+        // Keep player in bounds
+        if (player.x < 0) player.x = 0;
+        if (player.x + player.width > LEVEL_WIDTH) player.x = LEVEL_WIDTH - player.width;
+        if (player.y < 0) player.y = 0;
+        if (player.y + player.height > canvas.height) {
+            player.y = canvas.height - player.height;
+            player.velocityY = 0;
+            player.isJumping = false;
+        }
+
+        // Check win condition
+        if (checkCollision(player, goal)) {
+            gameWon = true;
+            // Victory sound
+            const oscillator = audioCtx.createOscillator();
+            const gainNode = audioCtx.createGain();
+            oscillator.connect(gainNode);
+            gainNode.connect(audioCtx.destination);
+            oscillator.type = 'square';
+            oscillator.frequency.setValueAtTime(440, audioCtx.currentTime);
+            oscillator.frequency.setValueAtTime(880, audioCtx.currentTime + 0.2);
+            gainNode.gain.setValueAtTime(0.1, audioCtx.currentTime);
+            gainNode.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 0.5);
+            oscillator.start();
+            oscillator.stop(audioCtx.currentTime + 0.5);
+        }
     }
 }
 
@@ -246,7 +291,13 @@ const clouds = [
     { x: 100, y: 80, scale: 1.2 },
     { x: 300, y: 60, scale: 0.8 },
     { x: 500, y: 90, scale: 1.0 },
-    { x: 700, y: 70, scale: 1.4 }
+    { x: 700, y: 70, scale: 1.4 },
+    // Additional clouds for extended level
+    { x: 900, y: 75, scale: 1.1 },
+    { x: 1200, y: 65, scale: 0.9 },
+    { x: 1500, y: 85, scale: 1.3 },
+    { x: 1800, y: 70, scale: 1.0 },
+    { x: 2100, y: 80, scale: 1.2 }
 ];
 
 // Main render function
@@ -254,6 +305,10 @@ function draw() {
     // Clear canvas
     ctx.fillStyle = '#000033'; // Darker blue background
     ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+    // Apply camera transform
+    ctx.save();
+    ctx.translate(-cameraX, 0);
 
     // Draw clouds with different sizes
     ctx.save();
@@ -335,6 +390,21 @@ function draw() {
         }
     }
 
+    // Draw goal flag
+    ctx.fillStyle = '#ffff00';
+    ctx.fillRect(goal.x, goal.y, goal.width, goal.height);
+    // Flag pole
+    ctx.fillStyle = '#ffffff';
+    ctx.fillRect(goal.x - 5, goal.y - 20, 5, goal.height + 20);
+    // Flag
+    ctx.fillStyle = '#ff0000';
+    ctx.beginPath();
+    ctx.moveTo(goal.x - 5, goal.y);
+    ctx.lineTo(goal.x - 35, goal.y + 15);
+    ctx.lineTo(goal.x - 5, goal.y + 30);
+    ctx.closePath();
+    ctx.fill();
+
     // Draw player (human-like figure)
     const centerX = player.x + player.width / 2;
     const centerY = player.y + player.height / 2;
@@ -360,6 +430,16 @@ function draw() {
     // Legs
     ctx.fillRect(centerX - 8, centerY + 15, 6, 15);
     ctx.fillRect(centerX + 2, centerY + 15, 6, 15);
+
+    ctx.restore();
+
+    // Draw win message if game is won (in screen space, not world space)
+    if (gameWon) {
+        ctx.fillStyle = '#ffffff';
+        ctx.font = '40px Arial';
+        ctx.textAlign = 'center';
+        ctx.fillText('Level Complete!', canvas.width/2, canvas.height/2);
+    }
 }
 
 // Game loop
